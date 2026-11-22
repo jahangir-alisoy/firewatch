@@ -106,7 +106,6 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .feed{position:relative;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:#050506;
       box-shadow:var(--shadow),0 0 0 1px var(--line)}
 .feed img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.feed.lens-on{cursor:none;touch-action:none}
 .chip{position:absolute;z-index:3;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;
   border-radius:999px;color:#fff;font-weight:600;font-size:13px;background:rgba(18,18,20,.26);
   -webkit-backdrop-filter:blur(8px) saturate(160%);backdrop-filter:blur(8px) saturate(160%);
@@ -119,19 +118,9 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .vis .chip{position:relative;min-width:92px}
 .vis .chip.hot{background:rgba(208,59,59,.55)}
 .vis .chip.warm{background:rgba(190,130,10,.5)}
-button.chip{right:14px;bottom:14px;width:40px;height:40px;padding:0;justify-content:center;border:0;cursor:pointer}
-button.chip.active{background:rgba(255,255,255,.3)}
 .nosig{position:absolute;inset:0;display:none;place-items:center;align-content:center;gap:10px;color:rgba(255,255,255,.45);font-size:13px}
 .nosig svg.i{width:30px;height:30px;stroke-width:1.4}
-.feed.off .nosig{display:grid} .feed.off img,.feed.off .chip:not(button),.feed.off .vis{display:none}
-.lens{position:absolute;z-index:4;width:180px;height:180px;border-radius:50%;pointer-events:none;overflow:hidden;
-  opacity:0;transform:translate(-50%,-50%) scale(.5);transition:opacity .18s,transform .35s var(--spring);
-  box-shadow:0 22px 44px rgba(0,0,0,.5)}
-.lens.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.lens canvas{width:100%;height:100%;display:block}
-.lens::after{content:"";position:absolute;inset:0;border-radius:50%;
-  background:radial-gradient(90px 60px at 32% 20%,rgba(255,255,255,.38),transparent 62%);
-  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7),inset 0 0 26px rgba(255,255,255,.22),inset 0 -8px 20px rgba(0,0,0,.25)}
+.feed.off .nosig{display:grid} .feed.off img,.feed.off .chip,.feed.off .vis{display:none}
 
 /* ---------- level ---------- */
 .lv-top{display:flex;align-items:center;justify-content:space-between}
@@ -221,7 +210,6 @@ button.chip.active{background:rgba(255,255,255,.3)}
   <symbol id="i-belloff" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 10.4-4M18 9.5c.3 5.4 2.5 7.5 2.5 7.5H8M10 20.5a2.2 2.2 0 0 0 4 0M3.5 17s2.5-2 2.5-8M3 3l18 18"/></symbol>
   <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
-  <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4M11 8.5v5M8.5 11h5"/></symbol>
   <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16.4a5 5 0 0 1 6 0M3 3l18 18"/></symbol>
 </svg>
 
@@ -245,14 +233,12 @@ button.chip.active{background:rgba(255,255,255,.3)}
   <main class="grid">
     <section class="feed off" id="feed">
       <img id="video" alt="">
-      <div class="lens" id="lens"><canvas id="lensCv"></canvas></div>
       <div class="chip tl" data-lg="6,14,10"><i class="rec"></i><span id="fps">0</span>&nbsp;fps</div>
       <div class="chip tr" id="model" data-lg="6,14,10">—</div>
       <div class="vis">
         <div class="chip" id="cFire" data-lg="6,14,10"><svg class="i"><use href="#i-flame"/></svg><span class="num" id="vFire">0%</span></div>
         <div class="chip" id="cSmoke" data-lg="6,14,10"><svg class="i"><use href="#i-smoke"/></svg><span class="num" id="vSmoke">0%</span></div>
       </div>
-      <button class="chip" id="lensBtn" data-t="lens" data-lg="6,14,10"><svg class="i"><use href="#i-zoom"/></svg></button>
       <div class="nosig"><svg class="i"><use href="#i-camoff"/></svg><span data-i18n="noCam"></span></div>
     </section>
 
@@ -298,13 +284,13 @@ const T = {
   az: { clear:'Normal', warning:'Diqqət', alarm:'Təhlükə', cam:'Kamera', sensors:'Sensorlar', noCam:'Kamera yoxdur',
         noLink:'Arduino yoxdur', warm:'MQ-2 qızınır…', smoke:'Tüstü', heat:'İstilik', flame:'Alov', fire:'Alov',
         last5:'Son 5 dəqiqə', events:'Hadisələr', peak:'pik', mute:'Səsi susdur', muted:'Susdurulub',
-        offline:'Bağlantı yoxdur', lens:'Böyüdücü', now:'indi', min:'dəq', light:'Açıq', dark:'Tünd', level:'Səviyyə',
+        offline:'Bağlantı yoxdur', now:'indi', min:'dəq', light:'Açıq', dark:'Tünd', level:'Səviyyə',
         ev:{ start:'Sistem işə düşdü', cam_on:'Kamera qoşuldu', cam_off:'Kamera itdi', link_on:'Sensorlar qoşuldu',
              link_off:'Sensorlar ayrıldı', snapshot:'Şəkil saxlandı', mute:'Səs susduruldu', model_err:'Model xətası' } },
   en: { clear:'Clear', warning:'Warning', alarm:'Alarm', cam:'Camera', sensors:'Sensors', noCam:'No camera',
         noLink:'No Arduino', warm:'MQ-2 warming up…', smoke:'Smoke', heat:'Heat', flame:'Flame', fire:'Fire',
         last5:'Last 5 minutes', events:'Events', peak:'peak', mute:'Mute buzzer', muted:'Muted',
-        offline:'Offline', lens:'Magnifier', now:'now', min:'min', light:'Light', dark:'Dark', level:'Level',
+        offline:'Offline', now:'now', min:'min', light:'Light', dark:'Dark', level:'Level',
         ev:{ start:'System started', cam_on:'Camera connected', cam_off:'Camera lost', link_on:'Sensors online',
              link_off:'Sensors offline', snapshot:'Snapshot saved', mute:'Buzzer muted', model_err:'Model error' } },
 };
@@ -396,12 +382,6 @@ if (LG) {
     timer = setTimeout(() => { pend.forEach(liquid); pend = new Set(); }, 120);
   });
   targets.forEach(el => ro.observe(el));
-  // the camera magnifier gets the same rim refraction on its own pixels
-  const lensEl = $('lens');
-  requestAnimationFrame(() => {
-    const id = makeFilter(lensEl, 180, 180, { edge: 16, band: 30 });
-    $('lensCv').style.filter = `url(#${id})`;
-  });
 }
 
 /* ---------------- segmented controls ---------------- */
@@ -586,39 +566,8 @@ function events(list) {
   }).join('');
 }
 
-/* ---------------- camera magnifier ---------------- */
-const feed = $('feed'), video = $('video'), lens = $('lens'), lcv = $('lensCv'), lctx = lcv.getContext('2d');
-const LS = 180, ZOOM = 2.4;
-let lensOn = store.get('fw-lens') != null ? store.get('fw-lens') === '1' : matchMedia('(pointer:fine)').matches;
-let lp = null, raf = 0;
-lcv.width = lcv.height = LS * (devicePixelRatio || 1);
-function setLens(on) { lensOn = on; store.set('fw-lens', on ? '1' : '0'); feed.classList.toggle('lens-on', on); $('lensBtn').classList.toggle('active', on); if (!on) hideLens(); }
-$('lensBtn').onclick = e => { e.stopPropagation(); setLens(!lensOn); };
-function imgRect() {
-  const r = feed.getBoundingClientRect(), iw = video.naturalWidth, ih = video.naturalHeight;
-  if (!iw) return null;
-  const s = Math.min(r.width / iw, r.height / ih), w = iw * s, h = ih * s;
-  return { x: (r.width - w) / 2, y: (r.height - h) / 2, w, h, s };
-}
-function hideLens() { lp = null; lens.classList.remove('show'); cancelAnimationFrame(raf); raf = 0; }
-function drawLens() {
-  raf = 0;
-  if (!lp || !camOn) return hideLens();
-  const ir = imgRect(); if (!ir) return;
-  const fr = feed.getBoundingClientRect(), x = lp.x - fr.left, y = lp.y - fr.top;
-  if (x < ir.x || y < ir.y || x > ir.x + ir.w || y > ir.y + ir.h) { lens.classList.remove('show'); raf = requestAnimationFrame(drawLens); return; }
-  lens.style.left = x + 'px'; lens.style.top = y + 'px'; lens.classList.add('show');
-  const sw = LS / ZOOM / ir.s, cx = (x - ir.x) / ir.s, cy = (y - ir.y) / ir.s;
-  lctx.fillStyle = '#000'; lctx.fillRect(0, 0, lcv.width, lcv.height);
-  try { lctx.drawImage(video, cx - sw / 2, cy - sw / 2, sw, sw, 0, 0, lcv.width, lcv.height); } catch (e) {}
-  raf = requestAnimationFrame(drawLens);
-}
-feed.addEventListener('pointermove', e => { if (!lensOn || e.target.closest('button')) return hideLens(); lp = { x: e.clientX, y: e.clientY }; if (!raf) raf = requestAnimationFrame(drawLens); });
-feed.addEventListener('pointerleave', hideLens);
-feed.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') hideLens(); });
-
 /* ---------------- ambient backdrop from the live camera ---------------- */
-const actx = $('amb').getContext('2d');
+const video = $('video'), actx = $('amb').getContext('2d');
 setInterval(() => { if (camOn && video.naturalWidth) try { actx.drawImage(video, 0, 0, 48, 27); } catch (e) {} }, 300);
 
 $('mute').onclick = () => fetch('/api/mute', { method: 'POST' });
@@ -626,7 +575,6 @@ setInterval(() => $('clock').textContent = new Date().toLocaleTimeString('en-GB'
 addEventListener('resize', () => { chart(); setSeg('segLang', lang); setSeg('segTheme', root.dataset.theme); });
 
 setSeg('segTheme', root.dataset.theme);
-setLens(lensOn);
 applyLang();
 connect();
 </script>
