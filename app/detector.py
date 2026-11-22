@@ -99,7 +99,7 @@ class YoloDetector:
 class HeuristicDetector:
     """Classical CV fallback. Static orange objects score low because they don't flicker."""
 
-    name = "OpenCV evristik (modelsiz)"
+    name = "OpenCV"
     W = 320
 
     def __init__(self):
@@ -191,7 +191,7 @@ class Vision:
                 cls = OnnxDetector if model_path.endswith(".onnx") else YoloDetector
                 self.detector = cls(model_path)
             except Exception as e:  # missing dependency or bad weights -> fall back
-                self.error = f"Model yüklənmədi: {e}"
+                self.error = str(e)
         if self.detector is None:
             self.detector = HeuristicDetector()
         self.fire = 0.0

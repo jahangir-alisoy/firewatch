@@ -1,310 +1,515 @@
 <!doctype html>
-<html lang="az">
+<html lang="az" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>FireWatch</title>
+<script>
+(function () {
+  var t, l;
+  try { t = localStorage.getItem('fw-theme'); l = localStorage.getItem('fw-lang'); } catch (e) {}
+  if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  document.documentElement.lang = l === 'en' ? 'en' : 'az';
+})();
+</script>
 <style>
 :root{
-  --page:#0d0d0d; --surface:#151514; --line:#2a2a28; --track:#232321;
-  --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
   --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
-  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
-  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --r:26px; --spring:cubic-bezier(.3,1.45,.5,1);
 }
-@media (prefers-color-scheme: light){
-  :root{ --page:#f4f4f1; --surface:#fcfcfb; --line:#e1e0d9; --track:#ebeae5;
-         --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; }
+[data-theme=dark]{
+  color-scheme:dark;
+  --bg:#0a0b0d; --blob1:rgba(255,128,48,.20); --blob2:rgba(70,120,200,.20);
+  --glass:rgba(32,34,38,.36); --soft:rgba(255,255,255,.06); --thumb:rgba(255,255,255,.16);
+  --rim1:rgba(255,255,255,.45); --rim2:rgba(255,255,255,.07);
+  --line:rgba(255,255,255,.08); --track:rgba(255,255,255,.09);
+  --ink:#f5f5f3; --ink2:rgba(245,245,243,.7); --muted:rgba(245,245,243,.42);
+  --shadow:0 26px 60px -26px rgba(0,0,0,.7),0 2px 8px rgba(0,0,0,.22);
+  --amb:.6; --tip:rgba(22,23,26,.9);
+}
+[data-theme=light]{
+  color-scheme:light;
+  --bg:#eceef1; --blob1:rgba(255,166,100,.38); --blob2:rgba(110,165,240,.32);
+  --glass:rgba(255,255,255,.5); --soft:rgba(255,255,255,.55); --thumb:rgba(255,255,255,.95);
+  --rim1:rgba(255,255,255,.95); --rim2:rgba(255,255,255,.4);
+  --line:rgba(17,18,21,.08); --track:rgba(17,18,21,.08);
+  --ink:#111215; --ink2:rgba(17,18,21,.68); --muted:rgba(17,18,21,.42);
+  --shadow:0 24px 50px -28px rgba(30,40,60,.4),0 1px 3px rgba(30,40,60,.08);
+  --amb:.4; --tip:rgba(255,255,255,.92);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{background:var(--page);color:var(--ink)}
-body{font:14px/1.45 var(--sans);-webkit-font-smoothing:antialiased;
-     max-width:1440px;margin:0 auto;padding:18px 24px 32px}
-.num,.mono,time{font-variant-numeric:tabular-nums}
+html{background:var(--bg);color:var(--ink);transition:background .4s}
+body{min-height:100vh;font:14px/1.4 var(--font);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:radial-gradient(60vmax 45vmax at 12% 8%,var(--blob1),transparent 62%),
+             radial-gradient(60vmax 45vmax at 92% 88%,var(--blob2),transparent 62%)}
+#amb{position:fixed;left:-8%;top:-8%;width:116%;height:116%;z-index:-1;pointer-events:none;
+     filter:blur(60px) saturate(1.6);opacity:0;transition:opacity 1s}
+body.cam #amb{opacity:var(--amb)}
+.aura{position:fixed;inset:0;z-index:60;pointer-events:none;transition:box-shadow .6s}
+body.s-warn .aura{box-shadow:inset 0 0 140px -30px rgba(250,178,25,.55)}
+body.s-alarm .aura{box-shadow:inset 0 0 180px -20px rgba(208,59,59,.75);animation:breathe 1.6s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.45}}
+button{font:inherit;color:inherit}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.num,time{font-variant-numeric:tabular-nums}
 
-header{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;
-       padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--line)}
-.brand{font-weight:650;letter-spacing:.01em;font-size:15px}
-.brand span{color:var(--muted);font-weight:400;margin-left:8px}
-.status{display:flex;gap:8px 22px;flex-wrap:wrap;color:var(--ink2);font-size:13px}
-.status b{font-weight:500;color:var(--ink)}
-.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:7px;vertical-align:1px}
-.dot.on{background:var(--good)} .dot.off{background:var(--crit)} .dot.wait{background:var(--warn)}
-#clock{font-family:var(--mono);color:var(--muted)}
+/* ---------- glass ---------- */
+.glass{position:relative;background:var(--glass);border-radius:var(--r);isolation:isolate;
+  -webkit-backdrop-filter:blur(18px) saturate(170%);backdrop-filter:blur(18px) saturate(170%);
+  box-shadow:var(--shadow),inset 0 1px 0 var(--rim1),inset 0 0 0 1px var(--rim2)}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:linear-gradient(155deg,var(--rim1),transparent 30%,transparent 70%,var(--rim2));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
 
-.grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
-h2{font-size:13px;font-weight:500;color:var(--ink2);margin-bottom:14px;
-   display:flex;justify-content:space-between;align-items:baseline}
-h2 span{color:var(--muted);font-weight:400}
+.wrap{max-width:1480px;margin:0 auto;padding:14px 20px 28px}
 
-/* camera */
-.feed{position:relative;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden}
+/* ---------- top bar ---------- */
+.bar{position:sticky;top:12px;z-index:30;display:flex;align-items:center;gap:8px;
+     padding:7px 7px 7px 18px;border-radius:999px;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:650;font-size:15px;letter-spacing:-.01em;margin-right:auto}
+.brand svg{color:var(--crit)}
+.pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:999px;
+      background:var(--soft);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .3s,box-shadow .3s}
+.dot.on{background:var(--good);box-shadow:0 0 10px var(--good)}
+.dot.off{background:var(--crit)} .dot.wait{background:var(--warn);box-shadow:0 0 10px var(--warn)}
+#clock{font:500 12px var(--mono);color:var(--muted);padding:0 8px}
+.seg{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:3px;
+     border-radius:999px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line)}
+.seg button{position:relative;z-index:1;height:28px;min-width:38px;padding:0 9px;border:0;background:none;
+  color:var(--muted);font-weight:650;font-size:12px;letter-spacing:.05em;cursor:pointer;border-radius:999px;
+  display:grid;place-items:center;transition:color .25s,transform .4s var(--spring)}
+.seg button svg.i{width:16px;height:16px}
+.seg button.on{color:var(--ink);transform:scale(1.08)}
+.seg .thumb{position:absolute;top:3px;left:0;height:28px;border-radius:999px;background:var(--thumb);z-index:0;
+  pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.18),inset 0 1px 0 var(--rim1),inset 0 0 0 1px var(--rim2);
+  transition:transform .5s var(--spring),width .3s}
+.lg .seg .thumb{z-index:2;background:rgba(255,255,255,.07)}
+.lg .seg button.on{transform:none}
+
+/* ---------- layout ---------- */
+.grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr) 340px;
+      grid-template-areas:"feed side" "chart ev"}
+.feed{grid-area:feed} .side{grid-area:side;display:flex;flex-direction:column;gap:16px}
+.chartc{grid-area:chart} .evc{grid-area:ev}
+.card{padding:18px 20px}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);
+    font-size:12px;font-weight:550;letter-spacing:.02em;margin-bottom:10px}
+.hd span{display:inline-flex;align-items:center;gap:7px}
+
+/* ---------- camera ---------- */
+.feed{position:relative;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:#050506;
+      box-shadow:var(--shadow),0 0 0 1px var(--line)}
 .feed img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.feed .tag{position:absolute;left:12px;top:12px;font:500 11px/1 var(--mono);letter-spacing:.05em;color:#f0efec;
-           background:rgba(0,0,0,.6);padding:6px 8px;border-radius:5px}
-.feed .tag i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--crit);margin-right:6px;vertical-align:1px}
-.feed .nosig{position:absolute;inset:0;display:none;place-items:center;color:#898781;font-size:13px;text-align:center}
-.feed.off .nosig{display:grid} .feed.off img,.feed.off .tag{display:none}
+.feed.lens-on{cursor:none;touch-action:none}
+.chip{position:absolute;z-index:3;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;
+  border-radius:999px;color:#fff;font-weight:600;font-size:13px;background:rgba(18,18,20,.26);
+  -webkit-backdrop-filter:blur(8px) saturate(160%);backdrop-filter:blur(8px) saturate(160%);
+  box-shadow:0 6px 18px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.45),inset 0 0 0 1px rgba(255,255,255,.12);
+  transition:background .3s}
+.chip.tl{top:14px;left:14px;font:600 12px var(--mono)}
+.chip.tr{top:14px;right:14px;font-weight:550;font-size:12px}
+.rec{width:7px;height:7px;border-radius:50%;background:var(--crit);box-shadow:0 0 8px var(--crit);animation:breathe 2s infinite}
+.vis{position:absolute;left:14px;bottom:14px;display:flex;gap:8px;z-index:3}
+.vis .chip{position:relative;min-width:92px}
+.vis .chip.hot{background:rgba(208,59,59,.55)}
+.vis .chip.warm{background:rgba(190,130,10,.5)}
+button.chip{right:14px;bottom:14px;width:40px;height:40px;padding:0;justify-content:center;border:0;cursor:pointer}
+button.chip.active{background:rgba(255,255,255,.3)}
+.nosig{position:absolute;inset:0;display:none;place-items:center;align-content:center;gap:10px;color:rgba(255,255,255,.45);font-size:13px}
+.nosig svg.i{width:30px;height:30px;stroke-width:1.4}
+.feed.off .nosig{display:grid} .feed.off img,.feed.off .chip:not(button),.feed.off .vis{display:none}
+.lens{position:absolute;z-index:4;width:180px;height:180px;border-radius:50%;pointer-events:none;overflow:hidden;
+  opacity:0;transform:translate(-50%,-50%) scale(.5);transition:opacity .18s,transform .35s var(--spring);
+  box-shadow:0 22px 44px rgba(0,0,0,.5)}
+.lens.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.lens canvas{width:100%;height:100%;display:block}
+.lens::after{content:"";position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(90px 60px at 32% 20%,rgba(255,255,255,.38),transparent 62%);
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7),inset 0 0 26px rgba(255,255,255,.22),inset 0 -8px 20px rgba(0,0,0,.25)}
 
-.vision{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;padding:16px 2px 0}
-.meter .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-.meter .row span{color:var(--ink2);font-size:13px}
-.meter .row b{font-weight:500;font-size:15px}
-.track{height:4px;border-radius:2px;background:var(--track);overflow:hidden}
-.track div{height:100%;width:0;border-radius:2px;background:var(--ink2);transition:width .25s linear}
-.model{color:var(--muted);font-size:12px;align-self:end;text-align:right}
-.model b{display:block;color:var(--ink2);font-weight:500;font-size:13px;margin-top:2px}
-
-/* level */
-.side{display:flex;flex-direction:column;gap:20px}
-.level{position:relative;overflow:hidden}
-.level::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:transparent;transition:background .2s}
-.level.warn::before{background:var(--warn)} .level.crit::before{background:var(--crit)}
-.state{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px}
-.shape{width:10px;height:10px;background:var(--good);border-radius:50%}
-.level.warn .shape{background:var(--warn);border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%)}
-.level.crit .shape{background:var(--crit);border-radius:1px;transform:rotate(45deg);width:9px;height:9px}
-.level.crit .state span{animation:pulse 1.2s ease-in-out infinite}
-@keyframes pulse{50%{opacity:.35}}
+/* ---------- level ---------- */
+.lv-top{display:flex;align-items:center;justify-content:space-between}
+.state{display:inline-flex;align-items:center;gap:9px;font-weight:650;font-size:15px}
+.shape{width:10px;height:10px;border-radius:50%;background:var(--good);box-shadow:0 0 10px var(--good);transition:all .3s}
+.s-warn .shape{background:var(--warn);box-shadow:none;border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.s-alarm .shape{background:var(--crit);box-shadow:none;border-radius:1px;width:9px;height:9px;transform:rotate(45deg)}
 .big{display:flex;align-items:baseline;gap:6px;margin:6px 0 16px}
-.big .num{font-size:96px;line-height:1;font-weight:600;letter-spacing:-.045em}
-.big small{font-size:22px;color:var(--muted);font-weight:500}
-.bar{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
-.bar i{height:22px;border-radius:4px;background:var(--track);transition:background .15s}
-.bar i.on.g{background:var(--good)} .bar i.on.y{background:var(--warn)} .bar i.on.r{background:var(--crit)}
-.scale{display:grid;grid-template-columns:3fr 3fr 4fr;gap:4px;margin-top:7px;color:var(--muted);font-size:11px}
-.lvl-meta{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:12px}
-.lvl-meta span{color:var(--ink2);font-size:13px}
-button{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--line);
-       border-radius:7px;padding:7px 12px;cursor:pointer}
-button:hover{border-color:var(--muted)} button:disabled{opacity:.4;cursor:default}
+.big b{font-size:108px;line-height:.92;font-weight:620;letter-spacing:-.055em;font-variant-numeric:tabular-nums}
+.big small{font-size:20px;color:var(--muted);font-weight:550}
+.lvbar{display:grid;grid-template-columns:repeat(10,1fr);gap:5px}
+.lvbar i{height:26px;border-radius:8px;background:var(--track);transition:background .25s,box-shadow .25s}
+.lvbar i.on.g{background:var(--good);box-shadow:0 0 16px -3px var(--good),inset 0 1px 0 rgba(255,255,255,.5)}
+.lvbar i.on.y{background:var(--warn);box-shadow:0 0 16px -3px var(--warn),inset 0 1px 0 rgba(255,255,255,.55)}
+.lvbar i.on.r{background:var(--crit);box-shadow:0 0 16px -3px var(--crit),inset 0 1px 0 rgba(255,255,255,.4)}
+.src{display:flex;gap:16px;margin-top:14px;color:var(--ink2);font-size:13px}
+.src span{display:inline-flex;align-items:center;gap:6px} .src b{font-weight:600;color:var(--ink)}
+.src svg.i{width:16px;height:16px;color:var(--muted)}
+.ibtn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;border:0;cursor:pointer;
+  background:var(--soft);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line);transition:background .2s,transform .3s var(--spring)}
+.ibtn:hover{transform:scale(1.06)} .ibtn:disabled{opacity:.35;cursor:default;transform:none}
+.ibtn.on{background:var(--warn);color:#111}
 
-/* sensors */
-.sensor{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:16px;
-        padding:12px 0;border-top:1px solid var(--line)}
-.sensor:first-of-type{border-top:0;padding-top:0}
-.sensor .name{color:var(--ink2);font-size:13px}
-.sensor .val{font-size:20px;font-weight:550;letter-spacing:-.01em;margin-top:2px}
-.sensor .val small{font-size:13px;color:var(--muted);font-weight:400;margin-left:3px}
-.sensor .sub{color:var(--muted);font-size:12px}
-.sensor canvas{grid-row:1 / span 2;grid-column:2;align-self:center;width:96px;height:32px}
-.note{color:var(--muted);font-size:13px;padding:6px 0 2px}
+/* ---------- sensors ---------- */
+.row{display:grid;grid-template-columns:30px 1fr auto 72px;align-items:center;gap:10px;padding:10px 0}
+.row+.row{border-top:1px solid var(--line)}
+.ic{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--soft);color:var(--ink2);
+    box-shadow:inset 0 0 0 1px var(--line)}
+.ic svg.i{width:16px;height:16px}
+.nm{color:var(--ink2)}
+.val{font-size:19px;font-weight:620;letter-spacing:-.01em;text-align:right}
+.val small{font-size:12px;color:var(--muted);font-weight:550;margin-left:2px}
+.row canvas{width:72px;height:26px}
+.hint{display:none;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;padding-top:8px}
+.hint.show{display:flex}
 
-/* bottom */
-.bottom{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;margin-top:20px}
-.chart{position:relative;height:190px}
+/* ---------- chart & events ---------- */
+.chart{position:relative;height:176px}
 .chart canvas{width:100%;height:100%;display:block}
-.tip{position:absolute;pointer-events:none;background:var(--page);border:1px solid var(--line);border-radius:7px;
-     padding:8px 10px;font-size:12px;line-height:1.55;color:var(--ink2);white-space:nowrap;display:none;z-index:2}
-.tip b{color:var(--ink);font-weight:600}
-.events{list-style:none;max-height:190px;overflow:auto;font-size:13px}
-.events li{display:grid;grid-template-columns:64px 12px 1fr;gap:6px;align-items:baseline;padding:4px 0}
-.events time{font-family:var(--mono);font-size:12px;color:var(--muted)}
-.events i{width:6px;height:6px;border-radius:50%;background:var(--muted);align-self:center}
-.events .alarm i{background:var(--crit);border-radius:1px;transform:rotate(45deg)}
-.events .warning i{background:var(--warn);border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%);width:8px;height:7px}
-.events .ok i{background:var(--good)}
-.events .warn i{background:var(--warn)}
-.events .alarm span{color:var(--ink);font-weight:550}
+.tip.glass{background:var(--tip)}
+.tip{position:absolute;top:4px;display:none;padding:9px 12px;border-radius:14px;font-size:12px;line-height:1.6;
+     color:var(--ink2);white-space:nowrap;pointer-events:none;z-index:2}
+.tip b{color:var(--ink);font-weight:650}
+.evs{list-style:none;max-height:176px;overflow:auto;scrollbar-width:thin}
+.evs li{display:grid;grid-template-columns:64px 12px 1fr;gap:6px;align-items:center;padding:5px 0;font-size:13px;color:var(--ink2)}
+.evs time{font:12px var(--mono);color:var(--muted)}
+.evs i{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.evs .ok i{background:var(--good)} .evs .warn i{background:var(--warn)}
+.evs .warning i{background:var(--warn);border-radius:0;width:8px;height:7px;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.evs .alarm i{background:var(--crit);border-radius:1px;transform:rotate(45deg)}
+.evs .alarm span{color:var(--ink);font-weight:650}
+
+.toast{position:fixed;left:50%;bottom:22px;z-index:70;display:flex;align-items:center;gap:9px;padding:10px 16px;
+  border-radius:999px;font-weight:550;transform:translate(-50%,30px);opacity:0;pointer-events:none;
+  transition:opacity .3s,transform .45s var(--spring)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
 
 @media (max-width:1000px){
-  .grid,.bottom{grid-template-columns:1fr}
-  body{padding:14px 16px 24px}
-  .vision{grid-template-columns:1fr 1fr}
-  .model{grid-column:1 / -1;text-align:left}
+  .grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"feed" "side" "chart" "ev"}
 }
+@media (max-width:600px){
+  .wrap{padding:10px 12px 22px}
+  .bar{padding-left:14px;gap:6px}
+  .brand b,#clock{display:none}
+  .pill{padding:0 9px}
+  .seg button{min-width:34px;padding:0 7px}
+  .big b{font-size:88px}
+  .vis .chip{min-width:0}
+  .chip{height:30px;padding:0 10px;font-size:12px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
+<canvas id="amb" width="48" height="27"></canvas>
+<div class="aura"></div>
+<svg id="fx" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
 
-<header>
-  <div class="brand">FireWatch<span>alov və tüstü monitoru</span></div>
-  <div class="status">
-    <div><i class="dot" id="dServer"></i>Server <b id="sServer">—</b></div>
-    <div><i class="dot" id="dCam"></i>Kamera <b id="sCam">—</b></div>
-    <div><i class="dot" id="dLink"></i>Sensorlar <b id="sLink">—</b></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1 3.6 5.5 5.6 5.5 10.3A5.5 5.5 0 0 1 6.5 13.3c0-2.4 1.3-4 2.6-5 .3 1.8 1.2 2.9 2.3 2.9 0-2.8-.6-5.6.6-8.2Z"/></symbol>
+  <symbol id="i-smoke" viewBox="0 0 24 24"><path d="M3 8c2-2 4 2 6 0s4-2 6 0 4 2 6 0M3 13c2-2 4 2 6 0s4-2 6 0 4 2 6 0M3 18c2-2 4 2 6 0s4-2 6 0"/></symbol>
+  <symbol id="i-temp" viewBox="0 0 24 24"><path d="M14 14.8V4.5a2 2 0 0 0-4 0v10.3a4 4 0 1 0 4 0Z"/><path d="M12 15v-4"/></symbol>
+  <symbol id="i-ir" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7H7l2-2.5h6L17 7h2.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5Z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-camoff" viewBox="0 0 24 24"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7H7l2-2.5h6L17 7h2.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5Z"/><path d="M3 3l18 18"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5"/><path d="M9.5 2.5v3.5M14.5 2.5v3.5M9.5 18v3.5M14.5 18v3.5M2.5 9.5H6M2.5 14.5H6M18 9.5h3.5M18 14.5h3.5"/></symbol>
+  <symbol id="i-belloff" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 10.4-4M18 9.5c.3 5.4 2.5 7.5 2.5 7.5H8M10 20.5a2.2 2.2 0 0 0 4 0M3.5 17s2.5-2 2.5-8M3 3l18 18"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
+  <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4M11 8.5v5M8.5 11h5"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16.4a5 5 0 0 1 6 0M3 3l18 18"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header class="bar glass" data-lg="8,22,18">
+    <div class="brand"><svg class="i"><use href="#i-flame"/></svg><b>FireWatch</b></div>
+    <span class="pill" id="pCam"><svg class="i"><use href="#i-cam"/></svg><i class="dot" id="dCam"></i></span>
+    <span class="pill" id="pLink"><svg class="i"><use href="#i-chip"/></svg><i class="dot" id="dLink"></i></span>
     <time id="clock">--:--:--</time>
-  </div>
-</header>
+    <div class="seg" id="segLang">
+      <span class="thumb" data-lg-thumb></span>
+      <button data-v="az">AZ</button><button data-v="en">EN</button>
+    </div>
+    <div class="seg" id="segTheme">
+      <span class="thumb" data-lg-thumb></span>
+      <button data-v="light" data-t="light"><svg class="i"><use href="#i-sun"/></svg></button>
+      <button data-v="dark" data-t="dark"><svg class="i"><use href="#i-moon"/></svg></button>
+    </div>
+  </header>
 
-<div class="grid">
-  <main>
-    <div class="feed off" id="feed">
-      <img id="video" alt="Kamera görüntüsü">
-      <div class="tag"><i></i>CANLI · <span id="fps">0</span> fps</div>
-      <div class="nosig">Kamera siqnalı yoxdur<br>qoşulma gözlənilir…</div>
-    </div>
-    <div class="vision">
-      <div class="meter">
-        <div class="row"><span>Alov · kamera</span><b class="num" id="vFire">0%</b></div>
-        <div class="track"><div id="mFire"></div></div>
+  <main class="grid">
+    <section class="feed off" id="feed">
+      <img id="video" alt="">
+      <div class="lens" id="lens"><canvas id="lensCv"></canvas></div>
+      <div class="chip tl" data-lg="6,14,10"><i class="rec"></i><span id="fps">0</span>&nbsp;fps</div>
+      <div class="chip tr" id="model" data-lg="6,14,10">—</div>
+      <div class="vis">
+        <div class="chip" id="cFire" data-lg="6,14,10"><svg class="i"><use href="#i-flame"/></svg><span class="num" id="vFire">0%</span></div>
+        <div class="chip" id="cSmoke" data-lg="6,14,10"><svg class="i"><use href="#i-smoke"/></svg><span class="num" id="vSmoke">0%</span></div>
       </div>
-      <div class="meter">
-        <div class="row"><span>Tüstü · kamera</span><b class="num" id="vSmoke">0%</b></div>
-        <div class="track"><div id="mSmoke"></div></div>
-      </div>
-      <div class="model">Görüntü modeli<b id="model">—</b></div>
-    </div>
+      <button class="chip" id="lensBtn" data-t="lens" data-lg="6,14,10"><svg class="i"><use href="#i-zoom"/></svg></button>
+      <div class="nosig"><svg class="i"><use href="#i-camoff"/></svg><span data-i18n="noCam"></span></div>
+    </section>
+
+    <aside class="side">
+      <section class="card glass" id="level" data-lg="20,26,18">
+        <div class="lv-top">
+          <span class="state"><i class="shape"></i><span id="stateLabel"></span></span>
+          <button class="ibtn" id="mute" data-t="mute"><svg class="i"><use href="#i-belloff"/></svg></button>
+        </div>
+        <div class="big"><b id="lvl">0</b><small>/10</small></div>
+        <div class="lvbar" id="lvbar"></div>
+        <div class="src">
+          <span data-t="cam"><svg class="i"><use href="#i-cam"/></svg><b id="srcV">0</b></span>
+          <span data-t="sensors"><svg class="i"><use href="#i-chip"/></svg><b id="srcS">—</b></span>
+        </div>
+      </section>
+
+      <section class="card glass" data-lg="20,26,18">
+        <div class="hd"><span><svg class="i"><use href="#i-chip"/></svg><span data-i18n="sensors"></span></span><span class="num" id="sLvl"></span></div>
+        <div class="row" id="rGas"><span class="ic"><svg class="i"><use href="#i-smoke"/></svg></span><span class="nm" data-i18n="smoke"></span><span class="val num" id="gas">—</span><canvas id="spGas"></canvas></div>
+        <div class="row" id="rTemp"><span class="ic"><svg class="i"><use href="#i-temp"/></svg></span><span class="nm" data-i18n="heat"></span><span class="val num" id="temp">—</span><canvas id="spTemp"></canvas></div>
+        <div class="row" id="rFlame"><span class="ic"><svg class="i"><use href="#i-ir"/></svg></span><span class="nm" data-i18n="flame"></span><span class="val num" id="flame">—</span><canvas id="spFlame"></canvas></div>
+        <div class="hint" id="hint"></div>
+      </section>
+    </aside>
+
+    <section class="card glass chartc" data-lg="20,26,18">
+      <div class="hd"><span data-i18n="last5"></span><span class="num" id="peak"></span></div>
+      <div class="chart" id="chart"><canvas id="cv"></canvas><div class="tip glass" id="tip"></div></div>
+    </section>
+
+    <section class="card glass evc" data-lg="20,26,18">
+      <div class="hd"><span data-i18n="events"></span></div>
+      <ul class="evs" id="events"></ul>
+    </section>
   </main>
-
-  <aside class="side">
-    <section class="panel level" id="level">
-      <div class="state"><i class="shape"></i><span id="stateLabel">Normal</span></div>
-      <div class="big"><span class="num" id="lvl">0</span><small>/ 10</small></div>
-      <div class="bar" id="bar"></div>
-      <div class="scale"><span>normal</span><span>diqqət</span><span>təhlükə</span></div>
-      <div class="lvl-meta">
-        <span id="lvlMeta">kamera 0 · sensor 0</span>
-        <button id="mute">Səsi susdur</button>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Arduino sensorları <span id="sensorLvl"></span></h2>
-      <div id="sensorBody">
-        <div class="sensor">
-          <div class="name">Tüstü / qaz · MQ-2</div>
-          <div class="val num" id="gas">—</div>
-          <div class="sub num" id="gasSub">&nbsp;</div>
-          <canvas id="spGas"></canvas>
-        </div>
-        <div class="sensor">
-          <div class="name">Temperatur · LM35</div>
-          <div class="val num" id="temp">—</div>
-          <div class="sub" id="tempSub">&nbsp;</div>
-          <canvas id="spTemp"></canvas>
-        </div>
-        <div class="sensor">
-          <div class="name">Alov · IR sensor</div>
-          <div class="val num" id="flame">—</div>
-          <div class="sub" id="flameSub">&nbsp;</div>
-          <canvas id="spFlame"></canvas>
-        </div>
-      </div>
-      <div class="note" id="sensorNote" hidden></div>
-    </section>
-  </aside>
 </div>
 
-<div class="bottom">
-  <section class="panel">
-    <h2>Səviyyə · son 5 dəqiqə <span id="peak"></span></h2>
-    <div class="chart" id="chart"><canvas id="cv"></canvas><div class="tip" id="tip"></div></div>
-  </section>
-  <section class="panel">
-    <h2>Hadisələr</h2>
-    <ul class="events" id="events"></ul>
-  </section>
-</div>
+<div class="toast glass" id="toast"><svg class="i"><use href="#i-wifi"/></svg><span data-i18n="offline"></span></div>
 
 <script>
-const $ = id => document.getElementById(id);
-const WINDOW = 300;                 // seconds shown in charts
-const STATES = {
-  CLEAR:   {label:'Normal',  cls:''},
-  WARNING: {label:'Diqqət',  cls:'warn'},
-  ALARM:   {label:'Təhlükə', cls:'crit'},
+const T = {
+  az: { clear:'Normal', warning:'Diqqət', alarm:'Təhlükə', cam:'Kamera', sensors:'Sensorlar', noCam:'Kamera yoxdur',
+        noLink:'Arduino yoxdur', warm:'MQ-2 qızınır…', smoke:'Tüstü', heat:'İstilik', flame:'Alov', fire:'Alov',
+        last5:'Son 5 dəqiqə', events:'Hadisələr', peak:'pik', mute:'Səsi susdur', muted:'Susdurulub',
+        offline:'Bağlantı yoxdur', lens:'Böyüdücü', now:'indi', min:'dəq', light:'Açıq', dark:'Tünd', level:'Səviyyə',
+        ev:{ start:'Sistem işə düşdü', cam_on:'Kamera qoşuldu', cam_off:'Kamera itdi', link_on:'Sensorlar qoşuldu',
+             link_off:'Sensorlar ayrıldı', snapshot:'Şəkil saxlandı', mute:'Səs susduruldu', model_err:'Model xətası' } },
+  en: { clear:'Clear', warning:'Warning', alarm:'Alarm', cam:'Camera', sensors:'Sensors', noCam:'No camera',
+        noLink:'No Arduino', warm:'MQ-2 warming up…', smoke:'Smoke', heat:'Heat', flame:'Flame', fire:'Fire',
+        last5:'Last 5 minutes', events:'Events', peak:'peak', mute:'Mute buzzer', muted:'Muted',
+        offline:'Offline', lens:'Magnifier', now:'now', min:'min', light:'Light', dark:'Dark', level:'Level',
+        ev:{ start:'System started', cam_on:'Camera connected', cam_off:'Camera lost', link_on:'Sensors online',
+             link_off:'Sensors offline', snapshot:'Snapshot saved', mute:'Buzzer muted', model_err:'Model error' } },
 };
-let hist = [];
-let hover = null;
+const $ = id => document.getElementById(id);
+const root = document.documentElement;
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+const css = n => getComputedStyle(root).getPropertyValue(n).trim();
+const WINDOW = 300;
+let lang = root.lang === 'en' ? 'en' : 'az';
+const t = k => T[lang][k] ?? k;
+let hist = [], last = null, hover = null, lastEvent = -1, camOn = false;
 
-// ---- 10-segment bar mirrors the 10 LEDs (3 green, 3 yellow, 4 red)
-const bar = $('bar');
-for (let i = 0; i < 10; i++) {
-  const s = document.createElement('i');
-  s.className = i < 3 ? 'g' : i < 6 ? 'y' : 'r';
-  bar.appendChild(s);
+/* ---------------- liquid glass (Chromium: refraction through SVG displacement) ---------------- */
+const UA = navigator.userAgent;
+const LG = /Chrome\/|Chromium\/|Edg\//.test(UA) && !/Firefox|FxiOS|CriOS|EdgiOS/.test(UA);
+if (LG) root.classList.add('lg');
+const NS = 'http://www.w3.org/2000/svg';
+let fxN = 0;
+
+function buildMap(w, h, radius, o) {
+  const s = w * h > 90000 ? 0.5 : 1;
+  const mw = Math.max(2, Math.round(w * s)), mh = Math.max(2, Math.round(h * s));
+  const r = Math.min(radius, w / 2, h / 2), band = o.band, edge = o.edge, mag = o.mag || 1;
+  const ox = new Float32Array(mw * mh), oy = new Float32Array(mw * mh);
+  let max = 0.01;
+  for (let j = 0; j < mh; j++) for (let i = 0; i < mw; i++) {
+    const px = (i + .5) / s, py = (j + .5) / s;
+    const qx = Math.min(Math.max(px, r), w - r), qy = Math.min(Math.max(py, r), h - r);
+    const vx = px - qx, vy = py - qy, len = Math.hypot(vx, vy);
+    let dist, nx = 0, ny = 0, dx = 0, dy = 0;
+    if (len > 0) { dist = r - len; nx = vx / len; ny = vy / len; }
+    else {
+      const d = [px, w - px, py, h - py]; dist = Math.min(...d);
+      const k = d.indexOf(dist); if (k === 0) nx = -1; else if (k === 1) nx = 1; else if (k === 2) ny = -1; else ny = 1;
+    }
+    if (dist < band && dist > -2) {                 // edge band: sample inward -> light bends at the rim
+      const m = Math.pow(1 - Math.max(0, dist) / band, 2) * edge;
+      dx -= nx * m; dy -= ny * m;
+    }
+    if (mag !== 1) { dx -= (px - w / 2) * (1 - 1 / mag); dy -= (py - h / 2) * (1 - 1 / mag); }  // lens
+    const k = j * mw + i; ox[k] = dx; oy[k] = dy;
+    max = Math.max(max, Math.abs(dx), Math.abs(dy));
+  }
+  const scale = max * 2.02;
+  const c = document.createElement('canvas'); c.width = mw; c.height = mh;
+  const g = c.getContext('2d'), im = g.createImageData(mw, mh);
+  for (let k = 0; k < mw * mh; k++) {
+    im.data[k * 4] = Math.round(127.5 + ox[k] / scale * 255);
+    im.data[k * 4 + 1] = Math.round(127.5 + oy[k] / scale * 255);
+    im.data[k * 4 + 2] = 128; im.data[k * 4 + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  return { url: c.toDataURL(), scale };
 }
 
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const pct = v => Math.round(v * 100) + '%';
-const hhmmss = t => new Date(t * 1000).toLocaleTimeString('az-AZ', {hour12:false});
+function makeFilter(el, w, h, o) {
+  const rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+  const { url, scale } = buildMap(w, h, rad, o);
+  let f = el._lgf;
+  if (!f) { f = document.createElementNS(NS, 'filter'); f.id = 'lg' + (++fxN); $('fx').appendChild(f); el._lgf = f; }
+  for (const [k, v] of Object.entries({ x: 0, y: 0, width: w, height: h, filterUnits: 'userSpaceOnUse',
+       primitiveUnits: 'userSpaceOnUse', 'color-interpolation-filters': 'sRGB' })) f.setAttribute(k, v);
+  f.innerHTML = `<feImage href="${url}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="none" result="m"/>` +
+    `<feDisplacementMap in="SourceGraphic" in2="m" scale="${scale.toFixed(2)}" xChannelSelector="R" yChannelSelector="G"/>`;
+  return f.id;
+}
 
-function setDot(id, cls) { $(id).className = 'dot ' + cls; }
+function liquid(el) {
+  const r = el.getBoundingClientRect(), w = Math.round(r.width), h = Math.round(r.height);
+  if (w < 8 || h < 8 || (el._w === w && el._h === h)) return;
+  el._w = w; el._h = h;
+  let o;
+  if (el.hasAttribute('data-lg-thumb')) o = { blur: 0, edge: 4, band: 8, mag: 1.32, sat: 130 };
+  else { const [blur, edge, band] = el.dataset.lg.split(',').map(Number); o = { blur, edge, band }; }
+  const id = makeFilter(el, w, h, o);
+  const bf = `url(#${id})${o.blur ? ` blur(${o.blur}px)` : ''} saturate(${o.sat || 170}%)`;
+  el.style.backdropFilter = bf; el.style.webkitBackdropFilter = bf;
+}
 
-// ---- websocket
+if (LG) {
+  const targets = document.querySelectorAll('[data-lg],[data-lg-thumb]');
+  let pend = new Set(), timer = 0;
+  const ro = new ResizeObserver(es => {
+    es.forEach(e => pend.add(e.target));
+    clearTimeout(timer);
+    timer = setTimeout(() => { pend.forEach(liquid); pend = new Set(); }, 120);
+  });
+  targets.forEach(el => ro.observe(el));
+  // the camera magnifier gets the same rim refraction on its own pixels
+  const lensEl = $('lens');
+  requestAnimationFrame(() => {
+    const id = makeFilter(lensEl, 180, 180, { edge: 16, band: 30 });
+    $('lensCv').style.filter = `url(#${id})`;
+  });
+}
+
+/* ---------------- segmented controls ---------------- */
+function setSeg(id, v) {
+  const seg = $(id), th = seg.querySelector('.thumb');
+  seg.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.v === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    if (on) { th.style.width = b.offsetWidth + 'px'; th.style.transform = `translateX(${b.offsetLeft}px)`; }
+  });
+}
+$('segLang').onclick = e => { const b = e.target.closest('button'); if (b) { lang = b.dataset.v; store.set('fw-lang', lang); applyLang(); } };
+$('segTheme').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  root.dataset.theme = b.dataset.v; store.set('fw-theme', b.dataset.v); setSeg('segTheme', b.dataset.v); redraw();
+};
+
+function applyLang() {
+  root.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll('[data-t]').forEach(el => { el.title = t(el.dataset.t); el.setAttribute('aria-label', el.title); });
+  setSeg('segLang', lang);
+  lastEvent = -1;
+  if (last) render(last);
+}
+
+/* ---------------- level bar (mirrors the 10 LEDs: 3 green, 3 yellow, 4 red) ---------------- */
+for (let i = 0; i < 10; i++) {
+  const s = document.createElement('i'); s.className = i < 3 ? 'g' : i < 6 ? 'y' : 'r'; $('lvbar').appendChild(s);
+}
+
+/* ---------------- websocket ---------------- */
 function connect() {
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
-  ws.onopen = () => {
-    setDot('dServer', 'on'); $('sServer').textContent = 'qoşulub';
-    $('video').src = '/video?' + Date.now();
-  };
+  ws.onopen = () => { $('toast').classList.remove('show'); $('video').src = '/video?' + Date.now(); };
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.type === 'init') { hist = m.history; return; }
     if (m.point && (!hist.length || m.point.t > hist[hist.length - 1].t)) hist.push(m.point);
     const cut = Date.now() / 1000 - WINDOW;
     while (hist.length && hist[0].t < cut) hist.shift();
-    render(m);
+    last = m; render(m);
   };
-  ws.onclose = () => {
-    setDot('dServer', 'off'); $('sServer').textContent = 'əlaqə yoxdur';
-    setTimeout(connect, 1500);
-  };
+  ws.onclose = () => { $('toast').classList.add('show'); setTimeout(connect, 1500); };
 }
 
-// ---- render
+const pct = v => Math.round(v * 100) + '%';
+const hms = s => new Date(s * 1000).toLocaleTimeString('en-GB', { hour12: false });
+const dot = (id, cls) => $(id).className = 'dot ' + cls;
+
 function render(m) {
-  const st = STATES[m.state];
-  const lv = $('level');
-  lv.className = 'panel level ' + st.cls;
-  $('stateLabel').textContent = st.label;
+  const sKey = m.state.toLowerCase();
+  document.body.classList.toggle('s-warn', m.state === 'WARNING');
+  document.body.classList.toggle('s-alarm', m.state === 'ALARM');
+  $('level').className = 'card glass ' + (m.state === 'WARNING' ? 's-warn' : m.state === 'ALARM' ? 's-alarm' : '');
+  $('stateLabel').textContent = t(sKey);
   $('lvl').textContent = m.level;
-  [...bar.children].forEach((s, i) => s.classList.toggle('on', i < m.level));
-  document.title = (m.state === 'CLEAR' ? '' : st.label + ' ' + m.level + '/10 · ') + 'FireWatch';
+  [...$('lvbar').children].forEach((s, i) => s.classList.toggle('on', i < m.level));
+  document.title = (m.state === 'CLEAR' ? '' : `${t(sKey)} ${m.level}/10 · `) + 'FireWatch';
 
-  // vision
   const v = m.vision;
+  camOn = v.cam;
+  document.body.classList.toggle('cam', v.cam);
   $('feed').classList.toggle('off', !v.cam);
-  setDot('dCam', v.cam ? 'on' : 'off');
-  $('sCam').textContent = v.cam ? 'canlı' : 'yoxdur';
+  dot('dCam', v.cam ? 'on' : 'off');
+  $('pCam').title = `${t('cam')} · ${v.cam ? Math.round(v.fps) + ' fps' : '—'}`;
   $('fps').textContent = Math.round(v.fps);
-  $('vFire').textContent = pct(v.fire);   $('mFire').style.width = pct(v.fire);
-  $('vSmoke').textContent = pct(v.smoke); $('mSmoke').style.width = pct(v.smoke);
-  $('model').textContent = v.model;
+  $('model').textContent = v.model.split(' · ')[0]; $('model').title = v.model;
+  $('vFire').textContent = pct(v.fire); $('vSmoke').textContent = pct(v.smoke);
+  $('cFire').className = 'chip' + (v.fire >= .5 ? ' hot' : v.fire >= .25 ? ' warm' : '');
+  $('cSmoke').className = 'chip' + (v.smoke >= .5 ? ' hot' : v.smoke >= .25 ? ' warm' : '');
+  $('cFire').title = t('fire'); $('cSmoke').title = t('smoke');
+  $('srcV').textContent = v.level;
 
-  // sensors
   const s = m.sensors, L = m.link;
-  const src = L.sim ? 'simulyasiya' : (L.port || 'axtarılır…');
-  setDot('dLink', L.online ? (s && s.warm ? 'wait' : 'on') : 'off');
-  $('sLink').textContent = L.online ? src : 'qoşulmayıb';
-  $('lvlMeta').textContent = `kamera ${v.level} · sensor ${s ? s.local : '—'}` + (s ? ` · LED ${s.leds}` : '');
+  dot('dLink', L.online ? (s && s.warm ? 'wait' : 'on') : 'off');
+  $('pLink').title = `${t('sensors')} · ${L.online ? (L.sim ? 'sim' : L.port) : '—'}`;
   $('mute').disabled = !L.online;
-  $('mute').textContent = s && s.muted ? 'Səs susdurulub' : 'Səsi susdur';
-
-  const note = $('sensorNote');
+  $('mute').classList.toggle('on', !!(s && s.muted));
+  $('mute').title = t(s && s.muted ? 'muted' : 'mute');
+  const hint = $('hint');
   if (!s) {
-    ['gas','temp','flame'].forEach(k => $(k).textContent = '—');
-    ['gasSub','tempSub','flameSub'].forEach(k => $(k).innerHTML = '&nbsp;');
-    $('sensorLvl').textContent = '';
-    note.hidden = false;
-    note.textContent = 'Arduino tapılmadı. USB ilə qoşun və ya --port göstərin. Kamera tək işləyir.';
+    ['gas', 'temp', 'flame'].forEach(k => $(k).textContent = '—');
+    $('sLvl').textContent = ''; $('srcS').textContent = '—';
+    hint.className = 'hint show'; hint.textContent = t('noLink');
   } else {
-    note.hidden = !s.warm;
-    note.textContent = 'MQ-2 qızınır, tüstü bazası ölçülür…';
-    $('sensorLvl').textContent = `səviyyə ${s.local}/10`;
-    $('gas').innerHTML = `+${s.gas}<small>vahid</small>`;
-    $('gasSub').textContent = `xam ${s.smoke_raw} · baza ${s.smoke_base}`;
+    hint.className = 'hint' + (s.warm ? ' show' : ''); hint.textContent = t('warm');
+    $('sLvl').textContent = s.local + '/10'; $('srcS').textContent = s.local;
+    $('gas').innerHTML = `+${s.gas}`;
+    $('rGas').title = `MQ-2 · raw ${s.smoke_raw} · base ${s.smoke_base}`;
     $('temp').innerHTML = `${s.temp.toFixed(1)}<small>°C</small>`;
-    $('tempSub').textContent = s.temp >= 45 ? 'həddi keçib (45 °C)' : 'hədd 45 °C';
     $('flame').innerHTML = `${Math.round(s.flame * 100)}<small>%</small>`;
-    $('flameSub').textContent = s.flame > 0.25 ? 'IR şüalanma var' : 'şüalanma yoxdur';
   }
-
-  spark('spGas',   hist.map(p => p.gas),   0, 400);
-  spark('spTemp',  hist.map(p => p.temp),  null, null);
-  spark('spFlame', hist.map(p => p.flame), 0, 1);
-  chart();
+  redraw();
   events(m.events);
 }
 
-// ---- canvas helpers
+function redraw() {
+  spark('spGas', hist.map(p => p.gas), 0, 400);
+  spark('spTemp', hist.map(p => p.temp), null, null);
+  spark('spFlame', hist.map(p => p.flame), 0, 1);
+  chart();
+}
+
+/* ---------------- canvas ---------------- */
 function fit(c) {
   const r = c.getBoundingClientRect(), d = devicePixelRatio || 1;
-  if (c.width !== Math.round(r.width * d) || c.height !== Math.round(r.height * d)) {
-    c.width = Math.round(r.width * d); c.height = Math.round(r.height * d);
-  }
+  const W = Math.round(r.width * d), H = Math.round(r.height * d);
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
   const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, r.width, r.height);
   return [g, r.width, r.height];
 }
@@ -315,35 +520,31 @@ function spark(id, vals, lo, hi) {
   if (pts.length < 2) return;
   const ys = pts.map(p => p[1]);
   let a = lo ?? Math.min(...ys), b = hi ?? Math.max(...ys);
-  if (lo == null) { const pad = Math.max(0.5, (b - a) * 0.2); a -= pad; b += pad; }
+  if (lo == null) { const pad = Math.max(.5, (b - a) * .2); a -= pad; b += pad; }
   b = Math.max(b, Math.max(...ys));
   const n = vals.length - 1, X = i => 2 + i / n * (w - 6), Y = v => h - 3 - (v - a) / (b - a || 1) * (h - 6);
-  g.strokeStyle = css('--ink2'); g.lineWidth = 1.5; g.lineJoin = 'round';
+  g.strokeStyle = css('--ink2'); g.lineWidth = 1.5; g.lineJoin = g.lineCap = 'round';
   g.beginPath(); pts.forEach(([i, v], k) => k ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.stroke();
   const [li, lv] = pts[pts.length - 1];
   g.fillStyle = css('--ink'); g.beginPath(); g.arc(X(li), Y(lv), 2.5, 0, 7); g.fill();
 }
 
 function chart() {
-  const c = $('cv'), [g, w, h] = fit(c);
-  const L = 26, R = 8, T = 8, B = 22, now = Date.now() / 1000;
-  const X = t => L + (t - (now - WINDOW)) / WINDOW * (w - L - R);
-  const Y = v => T + (1 - v / 10) * (h - T - B);
-  g.font = '11px ' + css('--sans'); g.textBaseline = 'middle';
-
-  // grid + thresholds
-  for (const [v, lab] of [[0,'0'],[4,'4'],[7,'7'],[10,'10']]) {
+  const [g, w, h] = fit($('cv'));
+  const L = 24, R = 6, Tp = 8, B = 22, now = Date.now() / 1000;
+  const X = s => L + (s - (now - WINDOW)) / WINDOW * (w - L - R);
+  const Y = v => Tp + (1 - v / 10) * (h - Tp - B);
+  g.font = '11px ' + css('--font'); g.textBaseline = 'middle';
+  for (const v of [0, 4, 7, 10]) {
     g.strokeStyle = v === 0 ? css('--muted') : css('--line'); g.lineWidth = 1;
     g.setLineDash(v === 4 || v === 7 ? [3, 4] : []);
     g.beginPath(); g.moveTo(L, Math.round(Y(v)) + .5); g.lineTo(w - R, Math.round(Y(v)) + .5); g.stroke();
-    g.fillStyle = css('--muted'); g.textAlign = 'right'; g.fillText(lab, L - 8, Y(v));
+    g.fillStyle = css('--muted'); g.textAlign = 'right'; g.fillText(v, L - 8, Y(v));
   }
-  g.setLineDash([]);
-  g.textAlign = 'center'; g.textBaseline = 'top';
-  for (let m = 5; m >= 0; m--) g.fillText(m ? `-${m} dəq` : 'indi', X(now - m * 60), h - B + 7);
-
-  if (hist.length < 2) return;
-  // step line of the level
+  g.setLineDash([]); g.textBaseline = 'top';
+  g.textAlign = 'left'; g.fillText(`−5 ${t('min')}`, L, h - B + 7);
+  g.textAlign = 'right'; g.fillText(t('now'), w - R, h - B + 7);
+  if (hist.length < 2) { $('peak').textContent = ''; return; }
   g.strokeStyle = css('--ink'); g.lineWidth = 2; g.lineJoin = 'round';
   g.beginPath();
   hist.forEach((p, i) => {
@@ -351,42 +552,82 @@ function chart() {
     if (!i) g.moveTo(x, y); else { g.lineTo(x, Y(hist[i - 1].level)); g.lineTo(x, y); }
   });
   g.stroke();
-  const peak = Math.max(...hist.map(p => p.level));
-  $('peak').textContent = `pik ${peak}/10`;
-
-  if (hover != null) {
-    let best = hist[0];
-    for (const p of hist) if (Math.abs(X(p.t) - hover) < Math.abs(X(best.t) - hover)) best = p;
-    const x = X(best.t);
-    g.strokeStyle = css('--muted'); g.lineWidth = 1;
-    g.beginPath(); g.moveTo(Math.round(x) + .5, T); g.lineTo(Math.round(x) + .5, h - B); g.stroke();
-    g.fillStyle = css('--ink'); g.strokeStyle = css('--surface'); g.lineWidth = 2;
-    g.beginPath(); g.arc(x, Y(best.level), 4.5, 0, 7); g.fill(); g.stroke();
-    const tip = $('tip');
-    tip.innerHTML = `<b>${hhmmss(best.t)} · səviyyə ${best.level}</b><br>` +
-      `kamera: alov ${pct(best.fire)}, tüstü ${pct(best.smoke)}<br>` +
-      (best.temp != null ? `sensor: ${best.temp.toFixed(1)} °C, qaz +${best.gas}, IR ${pct(best.flame)}` : 'sensor: qoşulmayıb');
-    tip.style.display = 'block';
-    const tw = tip.offsetWidth;
-    tip.style.left = Math.min(Math.max(0, x + 12), w - tw) + 'px';
-    tip.style.top = '6px';
-  } else $('tip').style.display = 'none';
+  $('peak').textContent = `${t('peak')} ${Math.max(...hist.map(p => p.level))}/10`;
+  const tip = $('tip');
+  if (hover == null) { tip.style.display = 'none'; return; }
+  let best = hist[0];
+  for (const p of hist) if (Math.abs(X(p.t) - hover) < Math.abs(X(best.t) - hover)) best = p;
+  const x = X(best.t);
+  g.strokeStyle = css('--muted'); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(Math.round(x) + .5, Tp); g.lineTo(Math.round(x) + .5, h - B); g.stroke();
+  g.fillStyle = css('--ink'); g.strokeStyle = css('--bg'); g.lineWidth = 2;
+  g.beginPath(); g.arc(x, Y(best.level), 4.5, 0, 7); g.fill(); g.stroke();
+  tip.innerHTML = `<b>${best.level}/10</b> · ${hms(best.t)}<br>${t('fire')} ${pct(best.fire)} · ${t('smoke')} ${pct(best.smoke)}` +
+    (best.temp != null ? `<br>${best.temp.toFixed(1)} °C · +${best.gas}` : '');
+  tip.style.display = 'block';
+  tip.style.left = Math.min(Math.max(0, x + 12), w - tip.offsetWidth) + 'px';
 }
-const chartEl = $('chart');
-chartEl.addEventListener('mousemove', e => { hover = e.clientX - chartEl.getBoundingClientRect().left; chart(); });
-chartEl.addEventListener('mouseleave', () => { hover = null; chart(); });
+$('chart').addEventListener('mousemove', e => { hover = e.clientX - $('chart').getBoundingClientRect().left; chart(); });
+$('chart').addEventListener('mouseleave', () => { hover = null; chart(); });
 
-let lastEvent = 0;
+function evText(e) {
+  if (e.text) return e.text;
+  const a = e.args || {};
+  if (e.code === 'state') return `${t(String(a.state).toLowerCase())} · ${a.level}/10`;
+  return T[lang].ev[e.code] || e.code;
+}
 function events(list) {
   if (!list.length || list[list.length - 1].id === lastEvent) return;
   lastEvent = list[list.length - 1].id;
-  $('events').innerHTML = list.slice().reverse().map(e =>
-    `<li class="${e.kind}"><time>${hhmmss(e.t)}</time><i></i><span>${e.text.replace(/</g,'&lt;')}</span></li>`).join('');
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  $('events').innerHTML = list.slice().reverse().map(e => {
+    const detail = Object.entries(e.args || {}).map(([k, v]) => `${k}: ${v}`).join(' · ');
+    return `<li class="${e.kind}" title="${esc(detail)}"><time>${hms(e.t)}</time><i></i><span>${esc(evText(e))}</span></li>`;
+  }).join('');
 }
 
-$('mute').onclick = () => fetch('/api/mute', {method:'POST'});
-setInterval(() => $('clock').textContent = new Date().toLocaleTimeString('az-AZ', {hour12:false}), 1000);
-addEventListener('resize', chart);
+/* ---------------- camera magnifier ---------------- */
+const feed = $('feed'), video = $('video'), lens = $('lens'), lcv = $('lensCv'), lctx = lcv.getContext('2d');
+const LS = 180, ZOOM = 2.4;
+let lensOn = store.get('fw-lens') != null ? store.get('fw-lens') === '1' : matchMedia('(pointer:fine)').matches;
+let lp = null, raf = 0;
+lcv.width = lcv.height = LS * (devicePixelRatio || 1);
+function setLens(on) { lensOn = on; store.set('fw-lens', on ? '1' : '0'); feed.classList.toggle('lens-on', on); $('lensBtn').classList.toggle('active', on); if (!on) hideLens(); }
+$('lensBtn').onclick = e => { e.stopPropagation(); setLens(!lensOn); };
+function imgRect() {
+  const r = feed.getBoundingClientRect(), iw = video.naturalWidth, ih = video.naturalHeight;
+  if (!iw) return null;
+  const s = Math.min(r.width / iw, r.height / ih), w = iw * s, h = ih * s;
+  return { x: (r.width - w) / 2, y: (r.height - h) / 2, w, h, s };
+}
+function hideLens() { lp = null; lens.classList.remove('show'); cancelAnimationFrame(raf); raf = 0; }
+function drawLens() {
+  raf = 0;
+  if (!lp || !camOn) return hideLens();
+  const ir = imgRect(); if (!ir) return;
+  const fr = feed.getBoundingClientRect(), x = lp.x - fr.left, y = lp.y - fr.top;
+  if (x < ir.x || y < ir.y || x > ir.x + ir.w || y > ir.y + ir.h) { lens.classList.remove('show'); raf = requestAnimationFrame(drawLens); return; }
+  lens.style.left = x + 'px'; lens.style.top = y + 'px'; lens.classList.add('show');
+  const sw = LS / ZOOM / ir.s, cx = (x - ir.x) / ir.s, cy = (y - ir.y) / ir.s;
+  lctx.fillStyle = '#000'; lctx.fillRect(0, 0, lcv.width, lcv.height);
+  try { lctx.drawImage(video, cx - sw / 2, cy - sw / 2, sw, sw, 0, 0, lcv.width, lcv.height); } catch (e) {}
+  raf = requestAnimationFrame(drawLens);
+}
+feed.addEventListener('pointermove', e => { if (!lensOn || e.target.closest('button')) return hideLens(); lp = { x: e.clientX, y: e.clientY }; if (!raf) raf = requestAnimationFrame(drawLens); });
+feed.addEventListener('pointerleave', hideLens);
+feed.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') hideLens(); });
+
+/* ---------------- ambient backdrop from the live camera ---------------- */
+const actx = $('amb').getContext('2d');
+setInterval(() => { if (camOn && video.naturalWidth) try { actx.drawImage(video, 0, 0, 48, 27); } catch (e) {} }, 300);
+
+$('mute').onclick = () => fetch('/api/mute', { method: 'POST' });
+setInterval(() => $('clock').textContent = new Date().toLocaleTimeString('en-GB', { hour12: false }), 1000);
+addEventListener('resize', () => { chart(); setSeg('segLang', lang); setSeg('segTheme', root.dataset.theme); });
+
+setSeg('segTheme', root.dataset.theme);
+setLens(lensOn);
+applyLang();
 connect();
 </script>
 </body>

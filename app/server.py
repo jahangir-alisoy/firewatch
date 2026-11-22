@@ -26,7 +26,6 @@ from link import ArduinoLink, SimLink
 
 ROOT = Path(__file__).resolve().parent.parent
 LEVEL_WARN, LEVEL_ALARM = 4, 7
-LABELS = {"CLEAR": "Normal", "WARNING": "Diqqət", "ALARM": "Təhlükə"}
 
 
 def state_of(level: int) -> str:
@@ -58,14 +57,15 @@ class Hub:
         self._last_snap = 0.0
         (ROOT / "logs").mkdir(exist_ok=True)
         (ROOT / "captures").mkdir(exist_ok=True)
-        self.event("info", f"Sistem başladı · görüntü: {self.vision.name}")
+        self.event("info", "start", model=self.vision.name)
         if self.vision.error:
-            self.event("warn", self.vision.error)
+            self.event("warn", "model_err", err=self.vision.error)
 
     # ---------------------------------------------------------------- events
-    def event(self, kind: str, text: str):
+    def event(self, kind: str, code: str, **args):
+        """Language-neutral event: the UI turns `code` + `args` into AZ/EN text."""
         self.event_id += 1
-        self.events.append({"id": self.event_id, "t": time.time(), "kind": kind, "text": text})
+        self.events.append({"id": self.event_id, "t": time.time(), "kind": kind, "code": code, "args": args})
 
     # ---------------------------------------------------------------- camera
     def camera_loop(self):
@@ -112,7 +112,7 @@ class Hub:
     def _set_cam(self, ok: bool):
         if ok != self.cam_ok:
             self.cam_ok = ok
-            self.event("info" if ok else "warn", "Kamera qoşuldu" if ok else "Kamera itdi")
+            self.event("info" if ok else "warn", "cam_on" if ok else "cam_off")
 
     # ---------------------------------------------------------------- fusion
     def fusion_loop(self):
@@ -138,8 +138,8 @@ class Hub:
 
             new_state = state_of(self.shown)
             if new_state != self.state:
-                why = f"səviyyə {self.shown} · kamera {self.vision_level} · sensor {self.sensor_level}"
-                self.event(new_state.lower() if new_state != "CLEAR" else "ok", f"{LABELS[new_state]} — {why}")
+                self.event(new_state.lower() if new_state != "CLEAR" else "ok", "state", state=new_state,
+                           level=self.shown, vision=self.vision_level, sensor=self.sensor_level)
                 if new_state == "ALARM" and now - self._last_snap > 20:
                     self._snapshot()
                 self.state = new_state
@@ -147,8 +147,8 @@ class Hub:
             online = self.link.online
             if online != self._link_was:
                 if self._link_was is not None or online:
-                    name = "Simulyasiya sensorları" if self.link.sim else f"Arduino ({self.link.port})"
-                    self.event("info" if online else "warn", f"{name} {'qoşuldu' if online else 'ayrıldı'}")
+                    port = "sim" if self.link.sim else self.link.port
+                    self.event("info" if online else "warn", "link_on" if online else "link_off", port=port)
                 self._link_was = online
 
             self.history.append(self._point(now, r))
@@ -181,7 +181,7 @@ class Hub:
         self._last_snap = time.time()
         name = datetime.now().strftime("alarm-%Y%m%d-%H%M%S.jpg")
         (ROOT / "captures" / name).write_bytes(jpg)
-        self.event("info", f"Şəkil saxlanıldı · captures/{name}")
+        self.event("info", "snapshot", file=f"captures/{name}")
 
     def _point(self, now, r):
         return {"t": round(now, 2), "level": self.shown,
@@ -235,7 +235,7 @@ def build_app(hub: Hub) -> FastAPI:
     @app.post("/api/mute")
     def mute():
         hub.link.mute()
-        hub.event("info", "Səs 60 saniyəlik susduruldu")
+        hub.event("info", "mute")
         return {"ok": True}
 
     @app.websocket("/ws")
