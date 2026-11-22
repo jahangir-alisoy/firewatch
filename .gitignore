@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Runtime data: camera snapshots and sensor logs (private)
+captures/
+logs/
+
+# Training: dataset, runs and intermediate weights (train.py downloads them again)
+data/
+runs/
+models/*.pt
+*.zip
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

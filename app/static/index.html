@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FireWatch</title>
+<style>
+:root{
+  --page:#0d0d0d; --surface:#151514; --line:#2a2a28; --track:#232321;
+  --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root{ --page:#f4f4f1; --surface:#fcfcfb; --line:#e1e0d9; --track:#ebeae5;
+         --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--page);color:var(--ink)}
+body{font:14px/1.45 var(--sans);-webkit-font-smoothing:antialiased;
+     max-width:1440px;margin:0 auto;padding:18px 24px 32px}
+.num,.mono,time{font-variant-numeric:tabular-nums}
+
+header{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;
+       padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--line)}
+.brand{font-weight:650;letter-spacing:.01em;font-size:15px}
+.brand span{color:var(--muted);font-weight:400;margin-left:8px}
+.status{display:flex;gap:8px 22px;flex-wrap:wrap;color:var(--ink2);font-size:13px}
+.status b{font-weight:500;color:var(--ink)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:7px;vertical-align:1px}
+.dot.on{background:var(--good)} .dot.off{background:var(--crit)} .dot.wait{background:var(--warn)}
+#clock{font-family:var(--mono);color:var(--muted)}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+h2{font-size:13px;font-weight:500;color:var(--ink2);margin-bottom:14px;
+   display:flex;justify-content:space-between;align-items:baseline}
+h2 span{color:var(--muted);font-weight:400}
+
+/* camera */
+.feed{position:relative;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden}
+.feed img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.feed .tag{position:absolute;left:12px;top:12px;font:500 11px/1 var(--mono);letter-spacing:.05em;color:#f0efec;
+           background:rgba(0,0,0,.6);padding:6px 8px;border-radius:5px}
+.feed .tag i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--crit);margin-right:6px;vertical-align:1px}
+.feed .nosig{position:absolute;inset:0;display:none;place-items:center;color:#898781;font-size:13px;text-align:center}
+.feed.off .nosig{display:grid} .feed.off img,.feed.off .tag{display:none}
+
+.vision{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;padding:16px 2px 0}
+.meter .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.meter .row span{color:var(--ink2);font-size:13px}
+.meter .row b{font-weight:500;font-size:15px}
+.track{height:4px;border-radius:2px;background:var(--track);overflow:hidden}
+.track div{height:100%;width:0;border-radius:2px;background:var(--ink2);transition:width .25s linear}
+.model{color:var(--muted);font-size:12px;align-self:end;text-align:right}
+.model b{display:block;color:var(--ink2);font-weight:500;font-size:13px;margin-top:2px}
+
+/* level */
+.side{display:flex;flex-direction:column;gap:20px}
+.level{position:relative;overflow:hidden}
+.level::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:transparent;transition:background .2s}
+.level.warn::before{background:var(--warn)} .level.crit::before{background:var(--crit)}
+.state{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px}
+.shape{width:10px;height:10px;background:var(--good);border-radius:50%}
+.level.warn .shape{background:var(--warn);border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.level.crit .shape{background:var(--crit);border-radius:1px;transform:rotate(45deg);width:9px;height:9px}
+.level.crit .state span{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.big{display:flex;align-items:baseline;gap:6px;margin:6px 0 16px}
+.big .num{font-size:96px;line-height:1;font-weight:600;letter-spacing:-.045em}
+.big small{font-size:22px;color:var(--muted);font-weight:500}
+.bar{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.bar i{height:22px;border-radius:4px;background:var(--track);transition:background .15s}
+.bar i.on.g{background:var(--good)} .bar i.on.y{background:var(--warn)} .bar i.on.r{background:var(--crit)}
+.scale{display:grid;grid-template-columns:3fr 3fr 4fr;gap:4px;margin-top:7px;color:var(--muted);font-size:11px}
+.lvl-meta{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:12px}
+.lvl-meta span{color:var(--ink2);font-size:13px}
+button{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--line);
+       border-radius:7px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)} button:disabled{opacity:.4;cursor:default}
+
+/* sensors */
+.sensor{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:16px;
+        padding:12px 0;border-top:1px solid var(--line)}
+.sensor:first-of-type{border-top:0;padding-top:0}
+.sensor .name{color:var(--ink2);font-size:13px}
+.sensor .val{font-size:20px;font-weight:550;letter-spacing:-.01em;margin-top:2px}
+.sensor .val small{font-size:13px;color:var(--muted);font-weight:400;margin-left:3px}
+.sensor .sub{color:var(--muted);font-size:12px}
+.sensor canvas{grid-row:1 / span 2;grid-column:2;align-self:center;width:96px;height:32px}
+.note{color:var(--muted);font-size:13px;padding:6px 0 2px}
+
+/* bottom */
+.bottom{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;margin-top:20px}
+.chart{position:relative;height:190px}
+.chart canvas{width:100%;height:100%;display:block}
+.tip{position:absolute;pointer-events:none;background:var(--page);border:1px solid var(--line);border-radius:7px;
+     padding:8px 10px;font-size:12px;line-height:1.55;color:var(--ink2);white-space:nowrap;display:none;z-index:2}
+.tip b{color:var(--ink);font-weight:600}
+.events{list-style:none;max-height:190px;overflow:auto;font-size:13px}
+.events li{display:grid;grid-template-columns:64px 12px 1fr;gap:6px;align-items:baseline;padding:4px 0}
+.events time{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.events i{width:6px;height:6px;border-radius:50%;background:var(--muted);align-self:center}
+.events .alarm i{background:var(--crit);border-radius:1px;transform:rotate(45deg)}
+.events .warning i{background:var(--warn);border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%);width:8px;height:7px}
+.events .ok i{background:var(--good)}
+.events .warn i{background:var(--warn)}
+.events .alarm span{color:var(--ink);font-weight:550}
+
+@media (max-width:1000px){
+  .grid,.bottom{grid-template-columns:1fr}
+  body{padding:14px 16px 24px}
+  .vision{grid-template-columns:1fr 1fr}
+  .model{grid-column:1 / -1;text-align:left}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">FireWatch<span>alov və tüstü monitoru</span></div>
+  <div class="status">
+    <div><i class="dot" id="dServer"></i>Server <b id="sServer">—</b></div>
+    <div><i class="dot" id="dCam"></i>Kamera <b id="sCam">—</b></div>
+    <div><i class="dot" id="dLink"></i>Sensorlar <b id="sLink">—</b></div>
+    <time id="clock">--:--:--</time>
+  </div>
+</header>
+
+<div class="grid">
+  <main>
+    <div class="feed off" id="feed">
+      <img id="video" alt="Kamera görüntüsü">
+      <div class="tag"><i></i>CANLI · <span id="fps">0</span> fps</div>
+      <div class="nosig">Kamera siqnalı yoxdur<br>qoşulma gözlənilir…</div>
+    </div>
+    <div class="vision">
+      <div class="meter">
+        <div class="row"><span>Alov · kamera</span><b class="num" id="vFire">0%</b></div>
+        <div class="track"><div id="mFire"></div></div>
+      </div>
+      <div class="meter">
+        <div class="row"><span>Tüstü · kamera</span><b class="num" id="vSmoke">0%</b></div>
+        <div class="track"><div id="mSmoke"></div></div>
+      </div>
+      <div class="model">Görüntü modeli<b id="model">—</b></div>
+    </div>
+  </main>
+
+  <aside class="side">
+    <section class="panel level" id="level">
+      <div class="state"><i class="shape"></i><span id="stateLabel">Normal</span></div>
+      <div class="big"><span class="num" id="lvl">0</span><small>/ 10</small></div>
+      <div class="bar" id="bar"></div>
+      <div class="scale"><span>normal</span><span>diqqət</span><span>təhlükə</span></div>
+      <div class="lvl-meta">
+        <span id="lvlMeta">kamera 0 · sensor 0</span>
+        <button id="mute">Səsi susdur</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Arduino sensorları <span id="sensorLvl"></span></h2>
+      <div id="sensorBody">
+        <div class="sensor">
+          <div class="name">Tüstü / qaz · MQ-2</div>
+          <div class="val num" id="gas">—</div>
+          <div class="sub num" id="gasSub">&nbsp;</div>
+          <canvas id="spGas"></canvas>
+        </div>
+        <div class="sensor">
+          <div class="name">Temperatur · LM35</div>
+          <div class="val num" id="temp">—</div>
+          <div class="sub" id="tempSub">&nbsp;</div>
+          <canvas id="spTemp"></canvas>
+        </div>
+        <div class="sensor">
+          <div class="name">Alov · IR sensor</div>
+          <div class="val num" id="flame">—</div>
+          <div class="sub" id="flameSub">&nbsp;</div>
+          <canvas id="spFlame"></canvas>
+        </div>
+      </div>
+      <div class="note" id="sensorNote" hidden></div>
+    </section>
+  </aside>
+</div>
+
+<div class="bottom">
+  <section class="panel">
+    <h2>Səviyyə · son 5 dəqiqə <span id="peak"></span></h2>
+    <div class="chart" id="chart"><canvas id="cv"></canvas><div class="tip" id="tip"></div></div>
+  </section>
+  <section class="panel">
+    <h2>Hadisələr</h2>
+    <ul class="events" id="events"></ul>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const WINDOW = 300;                 // seconds shown in charts
+const STATES = {
+  CLEAR:   {label:'Normal',  cls:''},
+  WARNING: {label:'Diqqət',  cls:'warn'},
+  ALARM:   {label:'Təhlükə', cls:'crit'},
+};
+let hist = [];
+let hover = null;
+
+// ---- 10-segment bar mirrors the 10 LEDs (3 green, 3 yellow, 4 red)
+const bar = $('bar');
+for (let i = 0; i < 10; i++) {
+  const s = document.createElement('i');
+  s.className = i < 3 ? 'g' : i < 6 ? 'y' : 'r';
+  bar.appendChild(s);
+}
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const pct = v => Math.round(v * 100) + '%';
+const hhmmss = t => new Date(t * 1000).toLocaleTimeString('az-AZ', {hour12:false});
+
+function setDot(id, cls) { $(id).className = 'dot ' + cls; }
+
+// ---- websocket
+function connect() {
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.onopen = () => {
+    setDot('dServer', 'on'); $('sServer').textContent = 'qoşulub';
+    $('video').src = '/video?' + Date.now();
+  };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'init') { hist = m.history; return; }
+    if (m.point && (!hist.length || m.point.t > hist[hist.length - 1].t)) hist.push(m.point);
+    const cut = Date.now() / 1000 - WINDOW;
+    while (hist.length && hist[0].t < cut) hist.shift();
+    render(m);
+  };
+  ws.onclose = () => {
+    setDot('dServer', 'off'); $('sServer').textContent = 'əlaqə yoxdur';
+    setTimeout(connect, 1500);
+  };
+}
+
+// ---- render
+function render(m) {
+  const st = STATES[m.state];
+  const lv = $('level');
+  lv.className = 'panel level ' + st.cls;
+  $('stateLabel').textContent = st.label;
+  $('lvl').textContent = m.level;
+  [...bar.children].forEach((s, i) => s.classList.toggle('on', i < m.level));
+  document.title = (m.state === 'CLEAR' ? '' : st.label + ' ' + m.level + '/10 · ') + 'FireWatch';
+
+  // vision
+  const v = m.vision;
+  $('feed').classList.toggle('off', !v.cam);
+  setDot('dCam', v.cam ? 'on' : 'off');
+  $('sCam').textContent = v.cam ? 'canlı' : 'yoxdur';
+  $('fps').textContent = Math.round(v.fps);
+  $('vFire').textContent = pct(v.fire);   $('mFire').style.width = pct(v.fire);
+  $('vSmoke').textContent = pct(v.smoke); $('mSmoke').style.width = pct(v.smoke);
+  $('model').textContent = v.model;
+
+  // sensors
+  const s = m.sensors, L = m.link;
+  const src = L.sim ? 'simulyasiya' : (L.port || 'axtarılır…');
+  setDot('dLink', L.online ? (s && s.warm ? 'wait' : 'on') : 'off');
+  $('sLink').textContent = L.online ? src : 'qoşulmayıb';
+  $('lvlMeta').textContent = `kamera ${v.level} · sensor ${s ? s.local : '—'}` + (s ? ` · LED ${s.leds}` : '');
+  $('mute').disabled = !L.online;
+  $('mute').textContent = s && s.muted ? 'Səs susdurulub' : 'Səsi susdur';
+
+  const note = $('sensorNote');
+  if (!s) {
+    ['gas','temp','flame'].forEach(k => $(k).textContent = '—');
+    ['gasSub','tempSub','flameSub'].forEach(k => $(k).innerHTML = '&nbsp;');
+    $('sensorLvl').textContent = '';
+    note.hidden = false;
+    note.textContent = 'Arduino tapılmadı. USB ilə qoşun və ya --port göstərin. Kamera tək işləyir.';
+  } else {
+    note.hidden = !s.warm;
+    note.textContent = 'MQ-2 qızınır, tüstü bazası ölçülür…';
+    $('sensorLvl').textContent = `səviyyə ${s.local}/10`;
+    $('gas').innerHTML = `+${s.gas}<small>vahid</small>`;
+    $('gasSub').textContent = `xam ${s.smoke_raw} · baza ${s.smoke_base}`;
+    $('temp').innerHTML = `${s.temp.toFixed(1)}<small>°C</small>`;
+    $('tempSub').textContent = s.temp >= 45 ? 'həddi keçib (45 °C)' : 'hədd 45 °C';
+    $('flame').innerHTML = `${Math.round(s.flame * 100)}<small>%</small>`;
+    $('flameSub').textContent = s.flame > 0.25 ? 'IR şüalanma var' : 'şüalanma yoxdur';
+  }
+
+  spark('spGas',   hist.map(p => p.gas),   0, 400);
+  spark('spTemp',  hist.map(p => p.temp),  null, null);
+  spark('spFlame', hist.map(p => p.flame), 0, 1);
+  chart();
+  events(m.events);
+}
+
+// ---- canvas helpers
+function fit(c) {
+  const r = c.getBoundingClientRect(), d = devicePixelRatio || 1;
+  if (c.width !== Math.round(r.width * d) || c.height !== Math.round(r.height * d)) {
+    c.width = Math.round(r.width * d); c.height = Math.round(r.height * d);
+  }
+  const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, r.width, r.height);
+  return [g, r.width, r.height];
+}
+
+function spark(id, vals, lo, hi) {
+  const [g, w, h] = fit($(id));
+  const pts = vals.map((v, i) => [i, v]).filter(p => p[1] != null);
+  if (pts.length < 2) return;
+  const ys = pts.map(p => p[1]);
+  let a = lo ?? Math.min(...ys), b = hi ?? Math.max(...ys);
+  if (lo == null) { const pad = Math.max(0.5, (b - a) * 0.2); a -= pad; b += pad; }
+  b = Math.max(b, Math.max(...ys));
+  const n = vals.length - 1, X = i => 2 + i / n * (w - 6), Y = v => h - 3 - (v - a) / (b - a || 1) * (h - 6);
+  g.strokeStyle = css('--ink2'); g.lineWidth = 1.5; g.lineJoin = 'round';
+  g.beginPath(); pts.forEach(([i, v], k) => k ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.stroke();
+  const [li, lv] = pts[pts.length - 1];
+  g.fillStyle = css('--ink'); g.beginPath(); g.arc(X(li), Y(lv), 2.5, 0, 7); g.fill();
+}
+
+function chart() {
+  const c = $('cv'), [g, w, h] = fit(c);
+  const L = 26, R = 8, T = 8, B = 22, now = Date.now() / 1000;
+  const X = t => L + (t - (now - WINDOW)) / WINDOW * (w - L - R);
+  const Y = v => T + (1 - v / 10) * (h - T - B);
+  g.font = '11px ' + css('--sans'); g.textBaseline = 'middle';
+
+  // grid + thresholds
+  for (const [v, lab] of [[0,'0'],[4,'4'],[7,'7'],[10,'10']]) {
+    g.strokeStyle = v === 0 ? css('--muted') : css('--line'); g.lineWidth = 1;
+    g.setLineDash(v === 4 || v === 7 ? [3, 4] : []);
+    g.beginPath(); g.moveTo(L, Math.round(Y(v)) + .5); g.lineTo(w - R, Math.round(Y(v)) + .5); g.stroke();
+    g.fillStyle = css('--muted'); g.textAlign = 'right'; g.fillText(lab, L - 8, Y(v));
+  }
+  g.setLineDash([]);
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  for (let m = 5; m >= 0; m--) g.fillText(m ? `-${m} dəq` : 'indi', X(now - m * 60), h - B + 7);
+
+  if (hist.length < 2) return;
+  // step line of the level
+  g.strokeStyle = css('--ink'); g.lineWidth = 2; g.lineJoin = 'round';
+  g.beginPath();
+  hist.forEach((p, i) => {
+    const x = X(p.t), y = Y(p.level);
+    if (!i) g.moveTo(x, y); else { g.lineTo(x, Y(hist[i - 1].level)); g.lineTo(x, y); }
+  });
+  g.stroke();
+  const peak = Math.max(...hist.map(p => p.level));
+  $('peak').textContent = `pik ${peak}/10`;
+
+  if (hover != null) {
+    let best = hist[0];
+    for (const p of hist) if (Math.abs(X(p.t) - hover) < Math.abs(X(best.t) - hover)) best = p;
+    const x = X(best.t);
+    g.strokeStyle = css('--muted'); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(Math.round(x) + .5, T); g.lineTo(Math.round(x) + .5, h - B); g.stroke();
+    g.fillStyle = css('--ink'); g.strokeStyle = css('--surface'); g.lineWidth = 2;
+    g.beginPath(); g.arc(x, Y(best.level), 4.5, 0, 7); g.fill(); g.stroke();
+    const tip = $('tip');
+    tip.innerHTML = `<b>${hhmmss(best.t)} · səviyyə ${best.level}</b><br>` +
+      `kamera: alov ${pct(best.fire)}, tüstü ${pct(best.smoke)}<br>` +
+      (best.temp != null ? `sensor: ${best.temp.toFixed(1)} °C, qaz +${best.gas}, IR ${pct(best.flame)}` : 'sensor: qoşulmayıb');
+    tip.style.display = 'block';
+    const tw = tip.offsetWidth;
+    tip.style.left = Math.min(Math.max(0, x + 12), w - tw) + 'px';
+    tip.style.top = '6px';
+  } else $('tip').style.display = 'none';
+}
+const chartEl = $('chart');
+chartEl.addEventListener('mousemove', e => { hover = e.clientX - chartEl.getBoundingClientRect().left; chart(); });
+chartEl.addEventListener('mouseleave', () => { hover = null; chart(); });
+
+let lastEvent = 0;
+function events(list) {
+  if (!list.length || list[list.length - 1].id === lastEvent) return;
+  lastEvent = list[list.length - 1].id;
+  $('events').innerHTML = list.slice().reverse().map(e =>
+    `<li class="${e.kind}"><time>${hhmmss(e.t)}</time><i></i><span>${e.text.replace(/</g,'&lt;')}</span></li>`).join('');
+}
+
+$('mute').onclick = () => fetch('/api/mute', {method:'POST'});
+setInterval(() => $('clock').textContent = new Date().toLocaleTimeString('az-AZ', {hour12:false}), 1000);
+addEventListener('resize', chart);
+connect();
+</script>
+</body>
+</html>

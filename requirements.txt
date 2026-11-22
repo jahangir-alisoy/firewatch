@@ -1,0 +1,7 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+opencv-python>=4.9
+numpy>=1.26
+pyserial>=3.5
+# only for re-training the model (python train.py):
+# ultralytics>=8.3
